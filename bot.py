@@ -3,8 +3,8 @@ import json
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
-TOKEN = os.environ.get("8388619491:AAGOgiY8h93-9W944R5FS81IgOJoyAaQirc")
-ADMIN_ID = int(os.environ.get("7292420044", "0"))
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+ADMIN_ID = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
 
 BAL_FILE = "balances.json"
 ORD_FILE = "orders.json"
