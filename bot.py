@@ -1,193 +1,196 @@
-import os
-import json
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+import os, io, json, html, random, string, threading
+from datetime import datetime
+from pathlib import Path
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-ADMIN_ID = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
+import qrcode
+from telegram import *
+from telegram.ext import *
 
-BAL_FILE = "balances.json"
-ORD_FILE = "orders.json"
+# =========================
+# 🔥 KEEP ALIVE (UPTIME)
+# =========================
+def run_server():
+    port = int(os.environ.get("PORT", 10000))
 
-def load(file):
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"OK")
+
+    server = HTTPServer(("0.0.0.0", port), Handler)
+    server.serve_forever()
+
+threading.Thread(target=run_server).start()
+
+# =========================
+# ⚙️ CONFIG
+# =========================
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_TELEGRAM_ID"))
+
+SYP_RATE = 125
+SHAM_ACCOUNT = "c1c8c0ec42173ec0399343eabf382b47"
+OWNER = "حسن عصام سعود"
+
+BASE = Path(__file__).parent
+BAL_FILE = BASE / "bal.json"
+
+# =========================
+# 💾 DATABASE
+# =========================
+def load():
+    if BAL_FILE.exists():
+        return json.load(open(BAL_FILE))
+    return {}
+
+def save(data):
+    json.dump(data, open(BAL_FILE, "w"))
+
+def get_bal(uid):
+    return load().get(str(uid), 0)
+
+def add_bal(uid, amt):
+    d = load()
+    d[str(uid)] = d.get(str(uid), 0) + amt
+    save(d)
+
+# =========================
+# 🔳 QR
+# =========================
+def qr(data):
+    buf = io.BytesIO()
+    qrcode.make(data).save(buf)
+    buf.seek(0)
+    return buf
+
+# =========================
+# 🏠 START
+# =========================
+async def start(update: Update, ctx):
+    kb = [["💰 رصيدي","➕ شحن"],["🎮 شدات"]]
+    await update.message.reply_text(
+        "🔥 متجر Pixel UC\nاختر:",
+        reply_markup=ReplyKeyboardMarkup(kb,resize_keyboard=True)
+    )
+
+# =========================
+# 💰 BALANCE
+# =========================
+async def balance(update: Update, ctx):
+    bal = get_bal(update.effective_user.id)
+    await update.message.reply_text(f"💰 رصيدك: {bal}$")
+
+# =========================
+# ➕ ADD BALANCE
+# =========================
+async def add(update: Update, ctx):
+    await update.message.reply_photo(
+        photo=qr(SHAM_ACCOUNT),
+        caption=f"""💳 شام كاش
+الحساب:
+{SHAM_ACCOUNT}
+({OWNER})
+
+1$ = {SYP_RATE} ل.س
+
+أرسل المبلغ:"""
+    )
+    return 1
+
+async def amount(update: Update, ctx):
     try:
-        with open(file) as f:
-            return json.load(f)
+        usd = float(update.message.text)
     except:
-        return {}
+        await update.message.reply_text("❌ رقم غلط")
+        return 1
 
-def save(file, data):
-    with open(file, "w") as f:
-        json.dump(data, f)
+    ctx.user_data["usd"] = usd
+    await update.message.reply_text("📸 أرسل إثبات")
+    return 2
 
-balances = load(BAL_FILE)
-orders = load(ORD_FILE)
+async def proof(update: Update, ctx):
+    uid = update.effective_user.id
+    usd = ctx.user_data["usd"]
 
-MENU = ReplyKeyboardMarkup([
-    [KeyboardButton("💰 رصيدي"), KeyboardButton("➕ إضافة رصيد")],
-    [KeyboardButton("🎮 شحن شدات"), KeyboardButton("📦 طلباتي")],
-], resize_keyboard=True)
-
-# ─── START ───
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = str(update.effective_user.id)
-    balances[uid] = balances.get(uid, 0)
-    save(BAL_FILE, balances)
-
-    await update.message.reply_text(
-        "🎮 PIXEL STORE\n🔥 متجر شدات احترافي\n\nاختر 👇",
-        reply_markup=MENU
+    await ctx.bot.send_message(
+        ADMIN_ID,
+        f"💰 طلب رصيد\nID: {uid}\n{usd}$"
     )
 
-# ─── رصيد ───
-async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = str(update.effective_user.id)
-    await update.message.reply_text(f"💰 رصيدك: {balances.get(uid,0)}$")
+    await update.message.reply_text("⏳ تم الإرسال")
+    return ConversationHandler.END
 
-# ─── إضافة رصيد ───
-async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =========================
+# 🎮 UC
+# =========================
+async def uc(update: Update, ctx):
+    kb = [
+        [InlineKeyboardButton("60 UC - 1$",callback_data="1")],
+        [InlineKeyboardButton("325 UC - 5$",callback_data="5")]
+    ]
     await update.message.reply_text(
-        "💳 شام كاش\n\n"
-        "الحساب:\n"
-        "c1c8c0ec42173ec0399343eabf382b47\n\n"
-        "📸 أرسل صورة التحويل"
+        "🎮 اختر:",
+        reply_markup=InlineKeyboardMarkup(kb)
     )
-    context.user_data["proof"] = True
 
-# ─── استقبال رسائل ───
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    uid = str(user.id)
-    text = update.message.text
-
-    # ─── إثبات ───
-    if context.user_data.get("proof"):
-        if update.message.photo:
-            file_id = update.message.photo[-1].file_id
-            oid = str(len(orders)+1)
-
-            orders[oid] = {"uid":uid,"type":"balance","status":"pending"}
-            save(ORD_FILE, orders)
-
-            btn = InlineKeyboardMarkup([[
-                InlineKeyboardButton("✅ قبول", callback_data=f"acc_{oid}"),
-                InlineKeyboardButton("❌ رفض", callback_data=f"rej_{oid}")
-            ]])
-
-            await context.bot.send_photo(
-                ADMIN_ID,
-                file_id,
-                caption=f"طلب رصيد\nID:{uid}\nطلب:{oid}",
-                reply_markup=btn
-            )
-
-            await update.message.reply_text("⏳ تم إرسال الطلب")
-            context.user_data.clear()
-            return
-
-    # ─── شدات ───
-    if text == "🎮 شحن شدات":
-        await update.message.reply_text("✏️ اكتب PUBG ID")
-        context.user_data["id"] = True
-
-    elif context.user_data.get("id"):
-        context.user_data["pubg"] = text
-        await update.message.reply_text("💵 اختر:\n60 / 325 / 660")
-        context.user_data["pkg"] = True
-        context.user_data["id"] = False
-
-    elif context.user_data.get("pkg"):
-        prices = {"60":1,"325":5,"660":10}
-        if text not in prices:
-            await update.message.reply_text("❌ غلط")
-            return
-
-        price = prices[text]
-        if balances.get(uid,0) < price:
-            await update.message.reply_text("❌ ما في رصيد")
-            return
-
-        oid = str(len(orders)+1)
-        orders[oid] = {
-            "uid":uid,
-            "type":"uc",
-            "pkg":text,
-            "pubg":context.user_data["pubg"],
-            "price":price,
-            "status":"pending"
-        }
-        save(ORD_FILE, orders)
-
-        btn = InlineKeyboardMarkup([[
-            InlineKeyboardButton("✅ تنفيذ", callback_data=f"done_{oid}"),
-            InlineKeyboardButton("❌ رفض", callback_data=f"rej_{oid}")
-        ]])
-
-        await context.bot.send_message(
-            ADMIN_ID,
-            f"طلب شدات\nID:{uid}\nPUBG:{context.user_data['pubg']}\nباقة:{text}\nطلب:{oid}",
-            reply_markup=btn
-        )
-
-        await update.message.reply_text("⏳ تم إرسال الطلب")
-        context.user_data.clear()
-
-    elif text == "💰 رصيدي":
-        await balance(update, context)
-
-    elif text == "➕ إضافة رصيد":
-        await add_balance(update, context)
-
-    elif text == "📦 طلباتي":
-        user_orders = [f"{k}: {v['status']}" for k,v in orders.items() if v["uid"]==uid]
-        await update.message.reply_text("\n".join(user_orders) if user_orders else "📭 لا يوجد")
-
-# ─── أزرار الأدمن ───
-async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def uc_buy(update: Update, ctx):
     q = update.callback_query
     await q.answer()
 
-    data = q.data
-    oid = data.split("_")[1]
-    order = orders.get(oid)
+    price = float(q.data)
+    uid = q.from_user.id
+    bal = get_bal(uid)
 
-    if not order:
+    if bal < price:
+        await q.message.reply_text("❌ ما عندك رصيد")
         return
 
-    uid = order["uid"]
+    ctx.user_data["price"] = price
+    await q.message.reply_text("🎮 ابعت ID")
+    return 3
 
-    if data.startswith("acc_"):
-        balances[uid] += 10
-        save(BAL_FILE, balances)
-        order["status"] = "approved"
-        save(ORD_FILE, orders)
+async def pubg(update: Update, ctx):
+    uid = update.effective_user.id
+    price = ctx.user_data["price"]
 
-        await context.bot.send_message(uid, "✅ تم إضافة الرصيد")
+    add_bal(uid, -price)
 
-    elif data.startswith("done_"):
-        balances[uid] -= order["price"]
-        save(BAL_FILE, balances)
-        order["status"] = "done"
-        save(ORD_FILE, orders)
+    await update.message.reply_text("✅ تم الطلب")
 
-        await context.bot.send_message(uid, "🎮 تم تنفيذ طلبك")
+    await ctx.bot.send_message(
+        ADMIN_ID,
+        f"🎮 طلب شدات\nID: {uid}\n{price}$"
+    )
 
-    elif data.startswith("rej_"):
-        order["status"] = "rejected"
-        save(ORD_FILE, orders)
+    return ConversationHandler.END
 
-        await context.bot.send_message(uid, "❌ تم رفض الطلب")
-
-    await q.edit_message_text("تم التنفيذ")
-
-# ─── تشغيل ───
+# =========================
+# 🚀 MAIN
+# =========================
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.ALL, handle))
-    app.add_handler(CallbackQueryHandler(buttons))
+    conv = ConversationHandler(
+        entry_points=[
+            MessageHandler(filters.Regex("➕ شحن"), add),
+            CallbackQueryHandler(uc_buy)
+        ],
+        states={
+            1:[MessageHandler(filters.TEXT, amount)],
+            2:[MessageHandler(filters.ALL, proof)],
+            3:[MessageHandler(filters.TEXT, pubg)]
+        },
+        fallbacks=[]
+    )
 
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.Regex("💰 رصيدي"), balance))
+    app.add_handler(MessageHandler(filters.Regex("🎮 شدات"), uc))
+    app.add_handler(conv)
+
+    print("🔥 BOT STARTED")
     app.run_polling()
 
 if __name__ == "__main__":
