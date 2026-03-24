@@ -5,7 +5,8 @@ PUBG UC Store Bot — Premium Edition
 • Anti-spam duplicate check       • Keep-alive HTTP + auto-restart
 """
 
-import os, json, html, random, string, logging, threading
+import os, io, json, html, random, string, logging, threading
+import qrcode
 from datetime import datetime
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -34,7 +35,6 @@ logger = logging.getLogger(__name__)
 # ══════════════════════════════════════════════════════════════════════
 
 BASE          = Path(__file__).parent
-QR_PATH       = BASE / "qr.jpg"
 BALANCES_F    = BASE / "balances.json"
 USERS_F       = BASE / "users.json"
 ORDERS_F      = BASE / "orders.json"
@@ -80,6 +80,12 @@ SYP_RATE         = 125                              # 1 USD = 125 SYP
 SYRIATEL_NUMBERS = ["39182251", "81398181"]
 SHAMCASH_ACCOUNT = "c1c8c0ec42173ec0399343eabf382b47"
 SHAMCASH_OWNER   = "حسن عصام سعود"
+
+def make_qr_bytes(data: str) -> io.BytesIO:
+    buf = io.BytesIO()
+    qrcode.make(data).save(buf, format="PNG")
+    buf.seek(0)
+    return buf
 
 # ══════════════════════════════════════════════════════════════════════
 #  KEYBOARDS
@@ -763,12 +769,11 @@ async def sham_type_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"1$ = {SYP_RATE} ل.س\n"
             "أدخل المبلغ بالدولار:"
         )
-        try:
-            with open(QR_PATH, "rb") as f:
-                await query.message.reply_photo(photo=f, caption=caption_usd, parse_mode="HTML")
-        except FileNotFoundError:
-            logger.warning("QR file not found: %s", QR_PATH)
-            await query.message.reply_text(caption_usd, parse_mode="HTML")
+        await query.message.reply_photo(
+            photo=make_qr_bytes(SHAMCASH_ACCOUNT),
+            caption=caption_usd,
+            parse_mode="HTML",
+        )
     else:
         context.user_data["pay_method"] = "shamcash_syp"
         caption_syp = (
@@ -777,12 +782,11 @@ async def sham_type_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"{SYP_RATE} ل.س = 1$\n"
             "أدخل المبلغ بالليرة السورية:"
         )
-        try:
-            with open(QR_PATH, "rb") as f:
-                await query.message.reply_photo(photo=f, caption=caption_syp, parse_mode="HTML")
-        except FileNotFoundError:
-            logger.warning("QR file not found: %s", QR_PATH)
-            await query.message.reply_text(caption_syp, parse_mode="HTML")
+        await query.message.reply_photo(
+            photo=make_qr_bytes(SHAMCASH_ACCOUNT),
+            caption=caption_syp,
+            parse_mode="HTML",
+        )
 
     return S_BAL_AMOUNT_SYP
 
