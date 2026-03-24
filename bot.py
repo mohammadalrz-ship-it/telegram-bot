@@ -1905,7 +1905,8 @@ def main() -> None:
     app.add_handler(CommandHandler("admin",   admin_panel))
     app.add_handler(CommandHandler("addbal",  addbal_cmd))
     app.add_handler(CommandHandler("balance", balance_cmd))
-
+app.add_handler(CommandHandler("shamcash", shamcash))
+    
     app.add_error_handler(error_handler)
 
     logger.info("Bot started. Keep-alive active.")
@@ -1918,3 +1919,18 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+async def shamcash(update, context):
+    import qrcode, io
+
+    data = "39182251"  # رقم حسابك
+
+    qr = qrcode.make(data)
+    bio = io.BytesIO()
+    bio.name = 'qr.png'
+    qr.save(bio, 'PNG')
+    bio.seek(0)
+
+    await update.message.reply_photo(
+        photo=bio,
+        caption="💳 شام كاش\n39182251\n\nارسل رقم العملية"
+    )
