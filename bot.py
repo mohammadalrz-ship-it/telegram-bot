@@ -76,7 +76,7 @@ UC_PACKAGES = [
 ]
 
 # ── Payment constants ──────────────────────────────────────────────────
-SYP_RATE         = 120                              # 1 USD = 120 SYP
+SYP_RATE         = 125                              # 1 USD = 125 SYP
 SYRIATEL_NUMBERS = ["39182251", "81398181"]
 SHAMCASH_ACCOUNT = "c1c8c0ec42173ec0399343eabf382b47"
 SHAMCASH_OWNER   = "حسن عصام سعود"
@@ -328,10 +328,7 @@ async def _ban_check(update: Update) -> bool:
         msg = update.message or (update.callback_query and update.callback_query.message)
         if msg:
             await msg.reply_text(
-                "🚫 <b>تم تقييد حسابك</b>\n\n"
-                "لا يمكنك استخدام هذا المتجر حالياً.\n\n"
-                "إذا كنت تعتقد أن هذا خطأ، تواصل مع الدعم:\n"
-                "👤 @Pixelm09",
+                "🚫 حسابك موقوف. للدعم: @Pixelm09",
                 parse_mode="HTML",
             )
         return True
@@ -350,14 +347,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     name = html.escape(user.first_name or "زائر")
     await update.message.reply_text(
         "🏪 <b>متجر شدات PUBG Mobile</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"👋 أهلاً وسهلاً، <b>{name}</b>!\n\n"
-        "⚡ <b>كيف يعمل المتجر؟</b>\n"
-        "  ➊  اشحن رصيدك عبر شام كاش\n"
-        "  ➋  اختر الباقة المناسبة لك\n"
-        "  ➌  أدخل ID حسابك وأكّد الطلب\n"
-        "  ➍  يصلك الشحن خلال دقائق ✨\n\n"
-        "📋 اختر الخدمة من القائمة أدناه 👇",
+        f"أهلاً <b>{name}</b>! اختر من القائمة:",
         parse_mode="HTML",
         reply_markup=get_menu(user.id),
     )
@@ -380,7 +370,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if text == "🔐 الإدارة":
         if not is_admin(update):
             await update.message.reply_text(
-                "⛔ <b>غير مسموح</b>\n\nهذا القسم للمشرفين فقط.",
+                "⛔ غير مسموح.",
                 parse_mode="HTML",
                 reply_markup=menu,
             )
@@ -393,12 +383,8 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         bal = get_balance(user.id)
         uid = user.id
         await update.message.reply_text(
-            "💰 <b>رصيدي</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"👤 المستخدم:  <code>{uid}</code>\n"
-            f"💵 الرصيد المتاح:  <b>{bal:.2f}$</b>\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "لشحن رصيدك اضغط  ➕ إضافة رصيد",
+            f"💰 رصيدك: <b>{bal:.2f}$</b>\n"
+            f"ID: <code>{uid}</code>",
             parse_mode="HTML",
             reply_markup=kb_bal_refresh(),
         )
@@ -406,11 +392,8 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # ── 🎮 شحن شدات ───────────────────────────────────────────
     elif text == "🎮 شحن شدات":
         await update.message.reply_text(
-            "🎮 <b>شحن شدات PUBG Mobile</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"🛒 لدينا <b>{len(UC_PACKAGES)} باقات</b> بأسعار تنافسية\n"
-            "💳 الدفع من رصيد حسابك مباشرةً\n\n"
-            "👇 اختر الباقة المناسبة:",
+            "🎮 <b>شحن شدات</b>\n"
+            "اختر الباقة:",
             parse_mode="HTML",
             reply_markup=kb_packages(),
         )
@@ -419,19 +402,14 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     elif text == "➕ إضافة رصيد":
         if has_pending(user.id, "balance"):
             await update.message.reply_text(
-                "⏳ <b>لديك طلب شحن قيد المراجعة</b>\n\n"
-                "طلبك السابق لا يزال تحت المعالجة.\n"
-                "يرجى الانتظار حتى يتم الرد عليه قبل إرسال طلب جديد.",
+                "⏳ لديك طلب قيد المراجعة، انتظر الرد أولاً.",
                 parse_mode="HTML",
                 reply_markup=menu,
             )
             return ConversationHandler.END
 
         await update.message.reply_text(
-            "➕ <b>شحن الرصيد</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "💵 سعر الصرف: <b>120 ل.س = 1$</b>\n\n"
-            "👇 اختر طريقة الدفع:",
+            f"➕ <b>شحن الرصيد</b>\n1$ = {SYP_RATE} ل.س — اختر طريقة الدفع:",
             parse_mode="HTML",
             reply_markup=kb_pay_method(),
         )
@@ -442,9 +420,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         orders = sorted(user_orders(user.id), key=lambda x: x[1]["created"], reverse=True)
         if not orders:
             await update.message.reply_text(
-                "📭 <b>لا توجد طلبات سابقة</b>\n\n"
-                "لم تقم بأي طلبات حتى الآن.\n"
-                "ابدأ بشحن رصيدك أو اختيار باقة شدات! 🎮",
+                "📭 لا توجد طلبات سابقة.",
                 parse_mode="HTML",
                 reply_markup=menu,
             )
@@ -488,13 +464,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     elif text == "📞 الدعم":
         await update.message.reply_text(
             "📞 <b>الدعم الفني</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "هل لديك استفسار أو مشكلة؟ نحن هنا لمساعدتك!\n\n"
-            "👤 <b>تواصل معنا على:</b>\n"
-            "    @Pixelm09\n\n"
-            "⏱ <b>وقت الاستجابة:</b>  عادةً خلال دقائق\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            "💡 <i>تأكد من ذكر رقم طلبك عند التواصل</i>",
+            "@Pixelm09 — اذكر رقم طلبك عند التواصل",
             parse_mode="HTML",
             reply_markup=menu,
         )
@@ -759,34 +729,18 @@ async def pay_method_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if query.data == "pay_sham":
         await query.message.reply_text(
-            "💳 <b>شام كاش — اختر العملة</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"💱 <b>سعر الصرف:</b>  1$ = {SYP_RATE} ل.س\n\n"
-            "👇 اختر نوع الدفع:",
+            f"💳 شام كاش — 1$ = {SYP_RATE} ل.س:",
             parse_mode="HTML",
             reply_markup=kb_sham_type(),
         )
         return S_BAL_SHAM_TYPE
     else:
         context.user_data["pay_method"] = "syriatel"
-        nums = "\n".join(f"    • <code>{n}</code>" for n in SYRIATEL_NUMBERS)
+        nums = "\n".join(f"<code>{n}</code>" for n in SYRIATEL_NUMBERS)
         await query.message.reply_text(
-            "📱 <b>تحويل عبر سيرياتيل كاش</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "📱 <b>أرقام سيرياتيل كاش:</b>\n"
-            f"{nums}\n\n"
-            "─────────────────────────\n"
-            "📋 <b>خطوات الدفع:</b>\n"
-            "  ➊  اختر أحد الأرقام أعلاه\n"
-            "  ➋  حوّل المبلغ المطلوب بالليرة السورية\n"
-            "  ➌  احتفظ برقم العملية\n\n"
-            f"💵 <b>سعر الصرف:</b>  {SYP_RATE} ل.س = 1$",
-            parse_mode="HTML",
-        )
-        await query.message.reply_text(
-            "💵 <b>كم المبلغ الذي حوّلته؟</b>\n\n"
-            "أدخل المبلغ <b>بالليرة السورية</b>:\n"
-            "<i>مثال: 12000</i>",
+            f"📱 <b>سيرياتيل كاش</b> — {SYP_RATE} ل.س = 1$\n"
+            f"الأرقام:\n{nums}\n"
+            "أدخل المبلغ بالليرة السورية:",
             parse_mode="HTML",
         )
         return S_BAL_AMOUNT_SYP
@@ -803,66 +757,32 @@ async def sham_type_selected(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if query.data == "pay_sham_usd":
         context.user_data["pay_method"] = "shamcash_usd"
-        await query.message.reply_text(
+        caption_usd = (
             "💵 <b>شام كاش دولار</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"👤 <b>اسم الحساب:</b>\n"
-            f"    {html.escape(SHAMCASH_OWNER)}\n\n"
-            f"🔢 <b>رقم الحساب:</b>\n"
-            f"    <code>{html.escape(SHAMCASH_ACCOUNT)}</code>\n\n"
-            "─────────────────────────\n"
-            "📋 <b>خطوات الدفع:</b>\n"
-            "  ➊  انسخ رقم الحساب\n"
-            "  ➋  حوّل المبلغ <b>بالدولار</b>\n"
-            "  ➌  أرسل إثبات التحويل\n\n"
-            f"💱 <b>سعر الإشارة:</b>  1$ = {SYP_RATE} ل.س",
-            parse_mode="HTML",
+            f"الحساب: <code>{html.escape(SHAMCASH_ACCOUNT)}</code>  ({html.escape(SHAMCASH_OWNER)})\n"
+            f"1$ = {SYP_RATE} ل.س\n"
+            "أدخل المبلغ بالدولار:"
         )
         try:
             with open(QR_PATH, "rb") as f:
-                await query.message.reply_photo(
-                    photo=f,
-                    caption="📷 <b>امسح QR لإتمام الدفع عبر شام كاش</b>",
-                    parse_mode="HTML",
-                )
+                await query.message.reply_photo(photo=f, caption=caption_usd, parse_mode="HTML")
         except FileNotFoundError:
             logger.warning("QR file not found: %s", QR_PATH)
-        await query.message.reply_text(
-            "💵 <b>أدخل المبلغ الذي حوّلته بالدولار:</b>\n\n"
-            "<i>مثال: 10</i>",
-            parse_mode="HTML",
-        )
+            await query.message.reply_text(caption_usd, parse_mode="HTML")
     else:
         context.user_data["pay_method"] = "shamcash_syp"
-        await query.message.reply_text(
+        caption_syp = (
             "💰 <b>شام كاش سوري</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"👤 <b>اسم الحساب:</b>\n"
-            f"    {html.escape(SHAMCASH_OWNER)}\n\n"
-            f"🔢 <b>رقم الحساب:</b>\n"
-            f"    <code>{html.escape(SHAMCASH_ACCOUNT)}</code>\n\n"
-            "─────────────────────────\n"
-            "📋 <b>خطوات الدفع:</b>\n"
-            "  ➊  انسخ رقم الحساب\n"
-            "  ➋  حوّل المبلغ <b>بالليرة السورية</b>\n"
-            "  ➌  أرسل إثبات التحويل\n\n"
-            f"💱 <b>سعر الصرف:</b>  {SYP_RATE} ل.س = 1$",
-            parse_mode="HTML",
+            f"الحساب: <code>{html.escape(SHAMCASH_ACCOUNT)}</code>  ({html.escape(SHAMCASH_OWNER)})\n"
+            f"{SYP_RATE} ل.س = 1$\n"
+            "أدخل المبلغ بالليرة السورية:"
         )
         try:
             with open(QR_PATH, "rb") as f:
-                await query.message.reply_photo(
-                    photo=f,
-                    caption="📷 <b>امسح QR لإتمام الدفع عبر شام كاش</b>",
-                    parse_mode="HTML",
-                )
+                await query.message.reply_photo(photo=f, caption=caption_syp, parse_mode="HTML")
         except FileNotFoundError:
             logger.warning("QR file not found: %s", QR_PATH)
-        await query.message.reply_text(
-            "💰 <b>أدخل المبلغ الذي حوّلته بالليرة السورية:</b>\n\n"
-            "<i>مثال: 12000</i>",
-            parse_mode="HTML",
-        )
+            await query.message.reply_text(caption_syp, parse_mode="HTML")
 
     return S_BAL_AMOUNT_SYP
 
@@ -881,19 +801,14 @@ async def receive_amount_syp(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 raise ValueError
         except ValueError:
             await update.message.reply_text(
-                "⚠️ <b>مبلغ غير صحيح</b>\n\n"
-                "أدخل مبلغاً صحيحاً بالدولار.\n"
-                "<i>مثال: 10</i>",
+                "⚠️ أرقام فقط — مثال: 10",
                 parse_mode="HTML",
             )
             return S_BAL_AMOUNT_SYP
         context.user_data["amount_usd_calc"] = round(amount_usd, 2)
         context.user_data["amount_syp"]      = round(amount_usd * SYP_RATE, 2)
         await update.message.reply_text(
-            "📸 <b>أرسل إثبات التحويل</b>\n\n"
-            "يمكنك إرسال:\n"
-            "  • صورة لقطة شاشة التحويل\n"
-            "  • رقم العملية نصاً",
+            "📸 أرسل صورة الإثبات أو رقم العملية:",
             parse_mode="HTML",
         )
         return S_BAL_PROOF
@@ -904,9 +819,7 @@ async def receive_amount_syp(update: Update, context: ContextTypes.DEFAULT_TYPE)
             raise ValueError
     except ValueError:
         await update.message.reply_text(
-            "⚠️ <b>مبلغ غير صحيح</b>\n\n"
-            "أدخل مبلغاً صحيحاً بالأرقام.\n"
-            "<i>مثال: 12000</i>",
+            "⚠️ أرقام فقط — مثال: 12000",
             parse_mode="HTML",
         )
         return S_BAL_AMOUNT_SYP
@@ -916,19 +829,15 @@ async def receive_amount_syp(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["amount_usd_calc"] = amount_usd
 
     if method == "syriatel":
-        nums = "\n".join(f"    • <code>{n}</code>" for n in SYRIATEL_NUMBERS)
+        nums = "\n".join(f"<code>{n}</code>" for n in SYRIATEL_NUMBERS)
         await update.message.reply_text(
-            "📱 <b>اكتب الرقم الذي قمت بالتحويل إليه:</b>\n\n"
-            f"{nums}",
+            f"أدخل رقم سيرياتيل الذي حوّلت إليه:\n{nums}",
             parse_mode="HTML",
         )
         return S_BAL_SYR_NUMBER
     else:
         await update.message.reply_text(
-            "📸 <b>أرسل إثبات التحويل</b>\n\n"
-            "يمكنك إرسال:\n"
-            "  • صورة لقطة شاشة التحويل\n"
-            "  • رقم العملية نصاً",
+            "📸 أرسل صورة الإثبات أو رقم العملية:",
             parse_mode="HTML",
         )
         return S_BAL_PROOF
@@ -940,21 +849,16 @@ async def receive_syriatel_number(update: Update, context: ContextTypes.DEFAULT_
 
     number = update.message.text.strip()
     if number not in SYRIATEL_NUMBERS:
-        nums = "\n".join(f"    • <code>{n}</code>" for n in SYRIATEL_NUMBERS)
+        nums = "\n".join(f"<code>{n}</code>" for n in SYRIATEL_NUMBERS)
         await update.message.reply_text(
-            "⚠️ <b>الرقم غير صحيح</b>\n\n"
-            "يرجى الاختيار من الأرقام التالية:\n"
-            f"{nums}",
+            f"⚠️ اختر من الأرقام التالية:\n{nums}",
             parse_mode="HTML",
         )
         return S_BAL_SYR_NUMBER
 
     context.user_data["syr_number"] = number
     await update.message.reply_text(
-        "📸 <b>أرسل إثبات التحويل</b>\n\n"
-        "يمكنك إرسال:\n"
-        "  • صورة لقطة شاشة التحويل\n"
-        "  • رقم العملية نصاً",
+        "📸 أرسل صورة الإثبات أو رقم العملية:",
         parse_mode="HTML",
     )
     return S_BAL_PROOF
@@ -1067,15 +971,9 @@ async def receive_proof(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         syp_confirm = ""
 
     await update.message.reply_text(
-        "✅ <b>تم استلام طلبك بنجاح!</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🔖 رقم الطلب:  <code>{html.escape(oid)}</code>\n"
-        f"💳 طريقة الدفع:  {pay_label}"
-        f"{syp_confirm}\n\n"
-        "⏳ طلبك قيد المراجعة الآن\n"
-        "📲 ستصلك رسالة فور إضافة الرصيد\n\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "💡 <i>احتفظ برقم الطلب للمتابعة</i>",
+        "✅ <b>طلبك مُرسَل!</b>\n"
+        f"<code>{html.escape(oid)}</code>{syp_confirm}\n"
+        "ستصلك رسالة عند الإضافة.",
         parse_mode="HTML",
         reply_markup=get_menu(user.id),
     )
@@ -1284,14 +1182,10 @@ async def bal_approve_init(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
 
     await query.message.reply_text(
-        "💰 <b>قبول طلب شحن الرصيد</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🔖 الطلب:        <code>{html.escape(oid)}</code>\n"
-        f"👤 المستخدم:   <code>{order['uid']}</code>\n"
-        f"💳 طريقة الدفع: {pay_label}\n"
+        f"💰 قبول طلب <code>{html.escape(oid)}</code>\n"
+        f"<code>{order['uid']}</code> · {pay_label}\n"
         f"{syp_info}"
-        "─────────────────────────\n"
-        f"أدخل <b>المبلغ بالدولار</b> الذي سيُضاف للمستخدم:{suggestion}",
+        f"أدخل <b>المبلغ بالدولار</b>:{suggestion}",
         parse_mode="HTML",
     )
     return S_ADM_BAL_AMOUNT
@@ -1305,7 +1199,7 @@ async def bal_approve_amount(update: Update, context: ContextTypes.DEFAULT_TYPE)
             raise ValueError
     except ValueError:
         await update.message.reply_text(
-            "⚠️ أدخل مبلغاً صحيحاً بالأرقام.\n<i>مثال: 10</i>",
+            "⚠️ أرقام فقط — مثال: 10",
             parse_mode="HTML",
         )
         return S_ADM_BAL_AMOUNT
